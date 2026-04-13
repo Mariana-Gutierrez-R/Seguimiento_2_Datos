@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import os
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from sklearn.model_selection import train_test_split
@@ -26,26 +27,73 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
+    local_file = "cleaned_dataset.csv"
+    
+    if os.path.exists(local_file):
+        try:
+            df = pd.read_csv(local_file)
+            if "productivity_level" not in df.columns:
+                df["productivity_level"] = pd.cut(
+                    df["Productivity_Score"],
+                    bins=[-1, 40, 70, 100],
+                    labels=["Baja", "Media", "Alta"]
+                )
+            return df
+        except Exception as e:
+            st.warning(f"Error reading local file: {e}")
+    
     try:
         import kagglehub
-        path = kagglehub.dataset_download("shadab80k/mental-health-productivity-2026")
-        df = pd.read_csv(path + "/mental_health_productivity_2026.csv")
-        
-        df["productivity_level"] = pd.cut(
-            df["Productivity_Score"],
-            bins=[-1, 40, 70, 100],
-            labels=["Baja", "Media", "Alta"]
-        )
-        
-        df.to_csv("cleaned_dataset.csv", index=False)
-        return df
-    except Exception as e:
-        try:
-            df = pd.read_csv("cleaned_dataset.csv")
+        with st.spinner('Descargando dataset de Kaggle...'):
+            path = kagglehub.dataset_download("shadab80k/mental-health-productivity-2026")
+            df = pd.read_csv(path + "/mental_health_productivity_2026.csv")
+            
+            df["productivity_level"] = pd.cut(
+                df["Productivity_Score"],
+                bins=[-1, 40, 70, 100],
+                labels=["Baja", "Media", "Alta"]
+            )
+            
+            df.to_csv(local_file, index=False)
             return df
-        except:
-            st.error(f"Error loading data: {e}")
-            return None
+    except Exception as e:
+        st.error(f"Error descargando datos: {e}")
+    
+    np.random.seed(42)
+    n_samples = 1500
+    
+    countries = ["USA", "UK", "Germany", "Brazil", "Australia", "France", "Singapore", "India", "Japan", "Canada"]
+    industries = ["Manufacturing", "Finance", "Tech", "Retail", "Education", "Healthcare"]
+    work_modes = ["Remote", "On-site", "Hybrid"]
+    genders = ["Male", "Female", "Non-binary"]
+    burnout_risks = ["Low", "Medium", "High"]
+    mental_health_support = ["Yes", "No"]
+    
+    data = {
+        "Employee_ID": [f"EMP_{str(i).zfill(4)}" for i in range(1, n_samples + 1)],
+        "Age": np.random.randint(22, 60, n_samples),
+        "Gender": np.random.choice(genders, n_samples),
+        "Country": np.random.choice(countries, n_samples),
+        "Industry": np.random.choice(industries, n_samples),
+        "Work_Mode": np.random.choice(work_modes, n_samples),
+        "Work_Hours_Per_Week": np.random.randint(30, 65, n_samples),
+        "Stress_Level": np.random.randint(1, 11, n_samples),
+        "Sleep_Hours": np.random.randint(4, 11, n_samples),
+        "Productivity_Score": np.random.randint(40, 101, n_samples),
+        "Physical_Activity_Hours": np.random.uniform(0, 10, n_samples).round(1),
+        "Mental_Health_Support_Access": np.random.choice(mental_health_support, n_samples),
+        "Burnout_Risk": np.random.choice(burnout_risks, n_samples)
+    }
+    
+    df = pd.DataFrame(data)
+    df["productivity_level"] = pd.cut(
+        df["Productivity_Score"],
+        bins=[-1, 40, 70, 100],
+        labels=["Baja", "Media", "Alta"]
+    )
+    
+    st.info("ℹ️ Usando datos de ejemplo para demostración.")
+    return df
 
 def apply_filters(df):
     st.sidebar.header("🔍 Filtros")
@@ -614,10 +662,6 @@ def predictive_analysis_page(df):
 
 def main():
     df = load_data()
-    
-    if df is None:
-        st.error("No se pudo cargar el dataset. Por favor verifique su conexión a internet.")
-        return
     
     st.sidebar.title("🧠 Mental Health & Productivity")
     st.sidebar.markdown("---")
